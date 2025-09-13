@@ -7,6 +7,7 @@ import { baseUrl } from 'lib/utils';
 import { ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import './globals.css';
+import { PageAssistant } from 'components/chat/PageAssistant';
 
 const { SITE_NAME } = process.env;
 
@@ -38,6 +39,8 @@ export default async function RootLayout({
             {children}
             <Toaster closeButton />
             <WelcomeToast />
+            {/* Enable assistant if COHERE_API_KEY is present at runtime */}
+            <PageAssistant />
           </main>
         </Providers>
       </body>

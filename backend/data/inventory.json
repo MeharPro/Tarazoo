@@ -1,0 +1,64 @@
+{
+  "products": [
+    {
+      "id": "1",
+      "name": "Premium Wireless Headphones",
+      "sku": "PWH-001",
+      "category": "Electronics",
+      "warehouse_quantity": 150,
+      "reserved_quantity": 25,
+      "available_quantity": 125,
+      "reorder_point": 50,
+      "unit_cost": 89.50,
+      "selling_price": 199.99,
+      "supplier_id": "SUP-001",
+      "last_restocked": "2024-01-15",
+      "location": "Warehouse A - Section 1"
+    },
+    {
+      "id": "2",
+      "name": "Smart Fitness Watch",
+      "sku": "SFW-002",
+      "category": "Wearables",
+      "warehouse_quantity": 75,
+      "reserved_quantity": 10,
+      "available_quantity": 65,
+      "reorder_point": 30,
+      "unit_cost": 149.99,
+      "selling_price": 299.99,
+      "supplier_id": "SUP-002",
+      "last_restocked": "2024-01-20",
+      "location": "Warehouse B - Section 2"
+    },
+    {
+      "id": "3",
+      "name": "Bluetooth Speaker",
+      "sku": "BTS-003",
+      "category": "Audio",
+      "warehouse_quantity": 200,
+      "reserved_quantity": 15,
+      "available_quantity": 185,
+      "reorder_point": 75,
+      "unit_cost": 39.99,
+      "selling_price": 89.99,
+      "supplier_id": "SUP-001",
+      "last_restocked": "2024-01-10",
+      "location": "Warehouse A - Section 3"
+    },
+    {
+      "id": "4",
+      "name": "Wireless Charging Pad",
+      "sku": "WCP-004",
+      "category": "Accessories",
+      "warehouse_quantity": 300,
+      "reserved_quantity": 20,
+      "available_quantity": 280,
+      "reorder_point": 100,
+      "unit_cost": 19.99,
+      "selling_price": 49.99,
+      "supplier_id": "SUP-003",
+      "last_restocked": "2024-01-25",
+      "location": "Warehouse C - Section 1"
+    }
+  ]
+}
