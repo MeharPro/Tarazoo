@@ -336,8 +336,6 @@ export async function getCollectionProducts({
   'use cache';
   if (fresh) {
     noStore();
-    revalidateTag(TAGS.collections);
-    revalidateTag(TAGS.products);
   }
   cacheTag(TAGS.collections, TAGS.products);
   cacheLife('days');
@@ -449,7 +447,6 @@ export async function getProduct(handle: string, opts?: { fresh?: boolean }): Pr
   'use cache';
   if (opts?.fresh) {
     noStore();
-    revalidateTag(TAGS.products);
   }
   cacheTag(TAGS.products);
   cacheLife('days');
@@ -499,7 +496,6 @@ export async function getProducts({
   'use cache';
   if (fresh) {
     noStore();
-    revalidateTag(TAGS.products);
   }
   cacheTag(TAGS.products);
   cacheLife('days');
