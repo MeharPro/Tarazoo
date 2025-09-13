@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function CheckoutSuccessPage() {
+function SuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams?.get('orderId');
 
@@ -16,11 +16,9 @@ export default function CheckoutSuccessPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-          Order Confirmed!
-        </h1>
-        
+
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">Order Confirmed!</h1>
+
         <p className="mt-4 text-lg text-gray-600">
           Thank you for your order. Your order has been successfully placed and will be processed shortly.
         </p>
@@ -48,5 +46,13 @@ export default function CheckoutSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading...</div>}>
+      <SuccessContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSupabaseCart } from 'components/cart/supabase-cart-context';
 import { createOrder } from 'lib/supabase';
@@ -56,10 +56,13 @@ export default function CheckoutPage() {
     }
   };
 
-  if (items.length === 0) {
-    router.push('/cart');
-    return null;
-  }
+  useEffect(() => {
+    if (items.length === 0) {
+      router.push('/cart');
+    }
+  }, [items.length, router]);
+
+  if (items.length === 0) return null;
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
