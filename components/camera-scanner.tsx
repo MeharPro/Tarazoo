@@ -19,6 +19,7 @@ export default function CameraScanner({ onDetected, onClose, autoCloseOnScan = t
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [autoMode, setAutoMode] = useState(false);
+  const [showManual, setShowManual] = useState(false);
 
   useEffect(() => {
     startScanning();
@@ -219,6 +220,14 @@ export default function CameraScanner({ onDetected, onClose, autoCloseOnScan = t
           </button>
         )}
 
+        {/* Manual input toggle */}
+        <button
+          onClick={() => setShowManual((v) => !v)}
+          className="absolute top-4 right-20 z-10 bg-white/20 backdrop-blur rounded-full px-3 py-2 text-white text-sm"
+        >
+          {showManual ? 'Hide Manual' : 'Manual'}
+        </button>
+
         <video
           ref={videoRef}
           autoPlay
@@ -279,25 +288,25 @@ export default function CameraScanner({ onDetected, onClose, autoCloseOnScan = t
           </div>
         )}
       </div>
-
-      {/* Manual name input fallback */}
-      <div className="bg-white p-4">
-        <form onSubmit={handleManualSubmit} className="flex gap-2">
-          <input
-            type="text"
-            value={manualName}
-            onChange={(e) => setManualName(e.target.value)}
-            placeholder="Enter item name (e.g., pen)"
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            type="submit"
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            Add
-          </button>
-        </form>
-      </div>
+      {showManual && (
+        <div className="bg-white p-4 border-t border-gray-200">
+          <form onSubmit={handleManualSubmit} className="flex gap-2">
+            <input
+              type="text"
+              value={manualName}
+              onChange={(e) => setManualName(e.target.value)}
+              placeholder="Enter item name (e.g., pen)"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Add
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
