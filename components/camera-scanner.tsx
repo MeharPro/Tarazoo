@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import type { Exception, Result } from '@zxing/library';
 import { BarcodeFormat, DecodeHintType } from '@zxing/library';
-import type { Result, Exception } from '@zxing/library';
+import type { Product as ShopifyProduct } from 'lib/shopify/types';
 import { getProductByBarcode } from 'lib/supabase';
-import type { Product } from '../packages/shared/types';
+import { useEffect, useRef, useState } from 'react';
 
 interface CameraScannerProps {
-  onProductScanned: (product: Product) => void;
+  onProductScanned: (product: ShopifyProduct) => void;
   onClose: () => void;
   autoCloseOnScan?: boolean;
 }
@@ -54,10 +54,13 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await new Promise((resolve) => {
+          videoRef.current!.onloadedmetadata = resolve;
+        });
         
         // Check for torch support
         const track = stream.getVideoTracks()[0];
-        if (track && (track as any).getCapabilities) {
+        if (track && 'getCapabilities' in track) {
           const capabilities = (track as any).getCapabilities();
           if (capabilities && 'torch' in capabilities) {
             setTorchEnabled(true);
@@ -65,18 +68,42 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
         }
 
         // Start continuous scanning
-        codeReader.decodeFromVideoDevice(undefined, videoRef.current, async (result: Result | undefined, err: Exception | undefined) => {
-          if (result) {
-            await handleBarcodeDetected(result.getText());
+        try {
+          // Try the newer API first
+          if (typeof codeReader.decodeFromVideoElement === 'function') {
+            await codeReader.decodeFromVideoElement(videoRef.current, async (result: Result | undefined, err: Exception | undefined) => {
+              if (result) {
+                await handleBarcodeDetected(result.getText());
+              }
+              if (err && (err as any).name !== 'NotFoundException') {
+                console.error('Scanning error:', err);
+              }
+            });
+          } else {
+            // Fallback to older API
+            await codeReader.decodeFromVideoDevice(undefined, videoRef.current, async (result: Result | undefined, err: Exception | undefined) => {
+              if (result) {
+                await handleBarcodeDetected(result.getText());
+              }
+              if (err && (err as any).name !== 'NotFoundException') {
+                console.error('Scanning error:', err);
+              }
+            });
           }
-          if (err && (err as any).name !== 'NotFoundException') {
-            console.error('Scanning error:', err);
-          }
-        });
+        } catch (decodeErr) {
+          console.error('Decode setup error:', decodeErr);
+          setError('Failed to start barcode scanning. Please try again.');
+          setIsScanning(false);
+        }
       }
     } catch (err) {
       console.error('Camera error:', err);
-      setError('Unable to access camera. Please check permissions.');
+      const errorMessage = err instanceof Error && err.name === 'NotAllowedError' 
+        ? 'Camera access denied. Please allow camera permissions and try again.'
+        : err instanceof Error && err.name === 'NotFoundError'
+        ? 'No camera found. Please connect a camera and try again.'
+        : 'Unable to access camera. Please check permissions and try again.';
+      setError(errorMessage);
       setIsScanning(false);
     }
   };
@@ -117,38 +144,59 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
       (codeReaderRef.current as any).reset?.();
     }
 
-    const product = await getProductByBarcode(barcode);
+    const supabaseProduct = await getProductByBarcode(barcode);
 
-    if (product) {
-      // Haptic feedback
-      if ('vibrate' in navigator) {
-        navigator.vibrate(200);
-      }
-      // Stop camera and bubble up
-      stopScanning();
-      onProductScanned(product);
-      if (autoCloseOnScan) {
-        onClose();
-      }
-    } else {
-      setError(`Product not found for barcode: ${barcode}`);
-      // Optionally resume decoding after error display
-      setTimeout(() => {
-        setError(null);
-        if (videoRef.current) {
-          const hints = new Map();
-          const formats = [BarcodeFormat.EAN_13, BarcodeFormat.CODE_128, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX];
-          hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
-          const reader = new BrowserMultiFormatReader(hints);
-          codeReaderRef.current = reader;
-          reader.decodeFromVideoDevice(undefined, videoRef.current!, async (result: Result | undefined, err: Exception | undefined) => {
-            if (result) {
-              await handleBarcodeDetected(result.getText());
-            }
-          });
+    if (supabaseProduct && supabaseProduct.shopify_handle) {
+      // Fetch the full Shopify product via API
+      const response = await fetch(`/api/products/${supabaseProduct.shopify_handle}`);
+      if (response.ok) {
+        const shopifyProduct = await response.json();
+        
+        if (shopifyProduct) {
+          // Haptic feedback
+          if ('vibrate' in navigator) {
+            navigator.vibrate(200);
+          }
+          // Stop camera and bubble up
+          stopScanning();
+          onProductScanned(shopifyProduct);
+          if (autoCloseOnScan) {
+            onClose();
+          }
+          return;
         }
-      }, 2000);
+      }
     }
+
+    setError(`Product not found for barcode: ${barcode}. The product may not be in our catalog yet.`);
+    // Optionally resume decoding after error display
+    setTimeout(() => {
+      setError(null);
+      if (videoRef.current) {
+        const hints = new Map();
+        const formats = [BarcodeFormat.EAN_13, BarcodeFormat.CODE_128, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX];
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+        const reader = new BrowserMultiFormatReader(hints);
+        codeReaderRef.current = reader;
+        try {
+          if (typeof reader.decodeFromVideoElement === 'function') {
+            reader.decodeFromVideoElement(videoRef.current, async (result: Result | undefined, err: Exception | undefined) => {
+              if (result) {
+                await handleBarcodeDetected(result.getText());
+              }
+            });
+          } else {
+            reader.decodeFromVideoDevice(undefined, videoRef.current!, async (result: Result | undefined, err: Exception | undefined) => {
+              if (result) {
+                await handleBarcodeDetected(result.getText());
+              }
+            });
+          }
+        } catch (resumeErr) {
+          console.error('Failed to resume scanning:', resumeErr);
+        }
+      }
+    }, 3000);
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {

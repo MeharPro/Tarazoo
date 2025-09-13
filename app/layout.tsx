@@ -1,13 +1,12 @@
-import { Providers } from 'components/providers';
-import { UserProvider } from '@auth0/nextjs-auth0/client';
 import { TarazooNavbar } from 'components/layout/navbar/tarazoo-navbar';
+import { Providers } from 'components/providers';
 import { WelcomeToast } from 'components/welcome-toast';
 import { GeistSans } from 'geist/font/sans';
+import { getCart } from 'lib/shopify';
+import { baseUrl } from 'lib/utils';
 import { ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import './globals.css';
-import { baseUrl } from 'lib/utils';
-import { getCart } from 'lib/shopify';
 
 const { SITE_NAME } = process.env;
 
@@ -33,16 +32,14 @@ export default async function RootLayout({
   return (
     <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
       <body className="bg-neutral-50 text-black selection:bg-teal-300 dark:bg-neutral-900 dark:text-white dark:selection:bg-pink-500 dark:selection:text-white">
-        <UserProvider>
-          <Providers cartPromise={shopifyCartPromise}>
-            <TarazooNavbar />
-            <main>
-              {children}
-              <Toaster closeButton />
-              <WelcomeToast />
-            </main>
-          </Providers>
-        </UserProvider>
+        <Providers cartPromise={shopifyCartPromise}>
+          <TarazooNavbar />
+          <main>
+            {children}
+            <Toaster closeButton />
+            <WelcomeToast />
+          </main>
+        </Providers>
       </body>
     </html>
   );

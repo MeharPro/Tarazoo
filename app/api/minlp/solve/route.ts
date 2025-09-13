@@ -1,14 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createMinlpRun } from 'lib/supabase';
-import { getSession } from '@auth0/nextjs-auth0';
+import { NextRequest, NextResponse } from 'next/server';
 
 const MINLP_BASE_URL = process.env.MINLP_BASE_URL || 'http://localhost:8000';
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
 
   try {
     const body = await request.json();
