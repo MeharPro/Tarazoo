@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withApiAuthRequired } from '@auth0/nextjs-auth0';
+import { getSession } from '@auth0/nextjs-auth0';
 
 const MINLP_BASE_URL = process.env.MINLP_BASE_URL || 'http://localhost:8000';
 
-export const POST = withApiAuthRequired(async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { solution } = body;
 
     // Call MINLP service for explanation
@@ -29,4 +34,4 @@ export const POST = withApiAuthRequired(async function POST(request: NextRequest
       { status: 500 }
     );
   }
-});
+}

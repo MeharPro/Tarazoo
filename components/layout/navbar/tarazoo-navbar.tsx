@@ -45,7 +45,7 @@ export function TarazooNavbar() {
         {/* Merchant auth controls */}
         {!isLoading && !user && (
           <Link
-            href={`/api/auth/login?returnTo=/merchant/${defaultMerchantId}`}
+            href={`/api/auth/login?returnTo=/dashboard&connection=google-oauth2`}
             className="hidden md:inline-block text-sm text-neutral-600 hover:text-black"
           >
             Merchant Sign in

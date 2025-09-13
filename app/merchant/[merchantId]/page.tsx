@@ -1,6 +1,6 @@
 import { DashboardClient } from 'components/dashboard/DashboardClient';
 
-export default function MerchantDashboardPage({ params }: { params: { merchantId: string } }) {
+export default async function MerchantDashboardPage({ params }: { params: { merchantId: string } }) {
   const { merchantId } = params;
   return <DashboardClient merchantId={merchantId} />;
 }

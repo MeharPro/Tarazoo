@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import type { Result, Exception } from '@zxing/library';
 import { getProductByBarcode } from 'lib/supabase';
 import type { Product } from '../packages/shared/types';
@@ -34,7 +35,10 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
       setIsScanning(true);
       setError(null);
 
-      const codeReader = new BrowserMultiFormatReader();
+      const hints = new Map();
+      const formats = [BarcodeFormat.EAN_13, BarcodeFormat.CODE_128, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX];
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+      const codeReader = new BrowserMultiFormatReader(hints);
       codeReaderRef.current = codeReader;
 
       const constraints: MediaStreamConstraints = {
@@ -132,7 +136,10 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
       setTimeout(() => {
         setError(null);
         if (videoRef.current) {
-          const reader = new BrowserMultiFormatReader();
+          const hints = new Map();
+          const formats = [BarcodeFormat.EAN_13, BarcodeFormat.CODE_128, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX];
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+          const reader = new BrowserMultiFormatReader(hints);
           codeReaderRef.current = reader;
           reader.decodeFromVideoDevice(undefined, videoRef.current!, async (result: Result | undefined, err: Exception | undefined) => {
             if (result) {

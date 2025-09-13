@@ -20,8 +20,10 @@ export function middleware(req: NextRequest) {
   const hasSession = Boolean(req.cookies.get('appSession'));
   if (!hasSession) {
     const loginUrl = new URL('/api/auth/login', req.url);
-    const returnTo = `${pathname}${search}`;
-    loginUrl.searchParams.set('returnTo', returnTo);
+    // Always send users to the dashboard after login
+    loginUrl.searchParams.set('returnTo', '/dashboard');
+    // Force Google connection for the gimmick flow
+    loginUrl.searchParams.set('connection', 'google-oauth2');
     return NextResponse.redirect(loginUrl);
   }
 
