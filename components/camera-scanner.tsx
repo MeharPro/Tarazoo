@@ -1,26 +1,24 @@
 'use client';
 
-import { BrowserMultiFormatReader } from '@zxing/browser';
-import type { Exception, Result } from '@zxing/library';
-import { BarcodeFormat, DecodeHintType } from '@zxing/library';
-import type { Product as ShopifyProduct } from 'lib/shopify/types';
-import { getProductByBarcode } from 'lib/supabase';
 import { useEffect, useRef, useState } from 'react';
+import type { Product } from '../packages/shared/types';
+import { getProductByName } from 'lib/supabase';
 
 interface CameraScannerProps {
-  onProductScanned: (product: ShopifyProduct) => void;
+  onDetected: (product: Product) => void;
   onClose: () => void;
   autoCloseOnScan?: boolean;
 }
 
-export default function CameraScanner({ onProductScanned, onClose, autoCloseOnScan = true }: CameraScannerProps) {
+export default function CameraScanner({ onDetected, onClose, autoCloseOnScan = true }: CameraScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [manualBarcode, setManualBarcode] = useState('');
+  const [manualName, setManualName] = useState('');
   const [torchEnabled, setTorchEnabled] = useState(false);
-  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [autoMode, setAutoMode] = useState(false);
 
   useEffect(() => {
     startScanning();
@@ -34,12 +32,6 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
     try {
       setIsScanning(true);
       setError(null);
-
-      const hints = new Map();
-      const formats = [BarcodeFormat.EAN_13, BarcodeFormat.CODE_128, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX];
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
-      const codeReader = new BrowserMultiFormatReader(hints);
-      codeReaderRef.current = codeReader;
 
       const constraints: MediaStreamConstraints = {
         video: {
@@ -67,34 +59,8 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
           }
         }
 
-        // Start continuous scanning
-        try {
-          // Try the newer API first
-          if (typeof codeReader.decodeFromVideoElement === 'function') {
-            await codeReader.decodeFromVideoElement(videoRef.current, async (result: Result | undefined, err: Exception | undefined) => {
-              if (result) {
-                await handleBarcodeDetected(result.getText());
-              }
-              if (err && (err as any).name !== 'NotFoundException') {
-                console.error('Scanning error:', err);
-              }
-            });
-          } else {
-            // Fallback to older API
-            await codeReader.decodeFromVideoDevice(undefined, videoRef.current, async (result: Result | undefined, err: Exception | undefined) => {
-              if (result) {
-                await handleBarcodeDetected(result.getText());
-              }
-              if (err && (err as any).name !== 'NotFoundException') {
-                console.error('Scanning error:', err);
-              }
-            });
-          }
-        } catch (decodeErr) {
-          console.error('Decode setup error:', decodeErr);
-          setError('Failed to start barcode scanning. Please try again.');
-          setIsScanning(false);
-        }
+        // Start periodic vision detection only if auto mode is enabled
+        if (autoMode) startPeriodicDetection();
       }
     } catch (err) {
       console.error('Camera error:', err);
@@ -109,10 +75,9 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
   };
 
   const stopScanning = () => {
-    if (codeReaderRef.current) {
-      (codeReaderRef.current as any).stopContinuousDecode?.();
-      (codeReaderRef.current as any).reset?.();
-      codeReaderRef.current = null;
+    if (timerRef.current) {
+      clearInterval(timerRef.current as any);
+      timerRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -137,74 +102,98 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
     }
   };
 
-  const handleBarcodeDetected = async (barcode: string) => {
-    // Stop decoding to prevent multiple reads
-    if (codeReaderRef.current) {
-      (codeReaderRef.current as any).stopContinuousDecode?.();
-      (codeReaderRef.current as any).reset?.();
-    }
-
-    const supabaseProduct = await getProductByBarcode(barcode);
-
-    if (supabaseProduct && supabaseProduct.shopify_handle) {
-      // Fetch the full Shopify product via API
-      const response = await fetch(`/api/products/${supabaseProduct.shopify_handle}`);
-      if (response.ok) {
-        const shopifyProduct = await response.json();
-        
-        if (shopifyProduct) {
-          // Haptic feedback
+  const startPeriodicDetection = () => {
+    if (timerRef.current) return;
+    timerRef.current = setInterval(async () => {
+      try {
+        const label = await detectCurrentFrame();
+        if (!label) return;
+        const product = await getProductByName(label);
+        if (product) {
           if ('vibrate' in navigator) {
             navigator.vibrate(200);
           }
-          // Stop camera and bubble up
           stopScanning();
-          onProductScanned(shopifyProduct);
-          if (autoCloseOnScan) {
-            onClose();
-          }
-          return;
+          onDetected(product);
+          if (autoCloseOnScan) onClose();
+        } else {
+          setError(`Detected "${label}" but could not find a matching product.`);
+          setTimeout(() => setError(null), 1500);
         }
+      } catch (e) {
+        // Swallow intermittent errors from detection
       }
-    }
+    }, 1500);
+  };
 
-    setError(`Product not found for barcode: ${barcode}. The product may not be in our catalog yet.`);
-    // Optionally resume decoding after error display
-    setTimeout(() => {
-      setError(null);
-      if (videoRef.current) {
-        const hints = new Map();
-        const formats = [BarcodeFormat.EAN_13, BarcodeFormat.CODE_128, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX];
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
-        const reader = new BrowserMultiFormatReader(hints);
-        codeReaderRef.current = reader;
-        try {
-          if (typeof reader.decodeFromVideoElement === 'function') {
-            reader.decodeFromVideoElement(videoRef.current, async (result: Result | undefined, err: Exception | undefined) => {
-              if (result) {
-                await handleBarcodeDetected(result.getText());
-              }
-            });
-          } else {
-            reader.decodeFromVideoDevice(undefined, videoRef.current!, async (result: Result | undefined, err: Exception | undefined) => {
-              if (result) {
-                await handleBarcodeDetected(result.getText());
-              }
-            });
-          }
-        } catch (resumeErr) {
-          console.error('Failed to resume scanning:', resumeErr);
-        }
+  const captureAndDetect = async () => {
+    try {
+      const label = await detectCurrentFrame();
+      if (!label) {
+        setError('Could not identify item. Try again.');
+        setTimeout(() => setError(null), 1500);
+        return;
       }
-    }, 3000);
+      const product = await getProductByName(label);
+      if (product) {
+        if ('vibrate' in navigator) navigator.vibrate(150);
+        stopScanning();
+        onDetected(product);
+        if (autoCloseOnScan) onClose();
+      } else {
+        setError(`Detected "${label}" but no matching product found.`);
+        setTimeout(() => setError(null), 1500);
+      }
+    } catch (e) {
+      setError('Capture failed. Please try again.');
+      setTimeout(() => setError(null), 1500);
+    }
+  };
+
+  const detectCurrentFrame = async (): Promise<string | null> => {
+    if (!videoRef.current) return null;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    // Square crop center for robustness
+    const size = Math.min(video.videoWidth || 640, video.videoHeight || 640) || 640;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(
+      video,
+      (video.videoWidth - size) / 2,
+      (video.videoHeight - size) / 2,
+      size,
+      size,
+      0,
+      0,
+      size,
+      size
+    );
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const res = await fetch('/api/vision-detect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUrl })
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.item || null;
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (manualBarcode) {
-      await handleBarcodeDetected(manualBarcode);
-      setManualBarcode('');
+    if (!manualName) return;
+    const product = await getProductByName(manualName.toLowerCase());
+    if (product) {
+      onDetected(product);
+      if (autoCloseOnScan) onClose();
+    } else {
+      setError('No matching product found by name');
+      setTimeout(() => setError(null), 1500);
     }
+    setManualName('');
   };
 
   return (
@@ -247,13 +236,42 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
               <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-green-500 rounded-bl-lg"></div>
               <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-green-500 rounded-br-lg"></div>
             </div>
-            {isScanning && (
+            {isScanning && autoMode && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-full h-0.5 bg-green-500 animate-pulse"></div>
               </div>
             )}
           </div>
         </div>
+
+        {/* Controls: torch (left), auto toggle (next), shutter (bottom center in manual mode) */}
+        <button
+          onClick={() => {
+            const next = !autoMode;
+            setAutoMode(next);
+            if (next) {
+              startPeriodicDetection();
+              setIsScanning(true);
+            } else if (timerRef.current) {
+              clearInterval(timerRef.current as any);
+              timerRef.current = null;
+              setIsScanning(false);
+            }
+          }}
+          className="absolute top-4 left-20 z-10 bg-white/20 backdrop-blur rounded-full px-3 py-2 text-white text-sm"
+        >
+          {autoMode ? 'Auto: ON' : 'Auto: OFF'}
+        </button>
+
+        {!autoMode && (
+          <div className="absolute bottom-10 left-0 right-0 flex items-center justify-center pointer-events-none">
+            <button
+              onClick={captureAndDetect}
+              className="pointer-events-auto w-20 h-20 rounded-full border-4 border-white bg-white/70 active:bg-white/90 shadow-lg"
+              aria-label="Capture"
+            />
+          </div>
+        )}
 
         {error && (
           <div className="absolute bottom-20 left-4 right-4 bg-red-500/90 text-white p-3 rounded-lg">
@@ -262,14 +280,14 @@ export default function CameraScanner({ onProductScanned, onClose, autoCloseOnSc
         )}
       </div>
 
-      {/* Manual barcode input fallback */}
+      {/* Manual name input fallback */}
       <div className="bg-white p-4">
         <form onSubmit={handleManualSubmit} className="flex gap-2">
           <input
             type="text"
-            value={manualBarcode}
-            onChange={(e) => setManualBarcode(e.target.value)}
-            placeholder="Enter barcode manually"
+            value={manualName}
+            onChange={(e) => setManualName(e.target.value)}
+            placeholder="Enter item name (e.g., pen)"
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button

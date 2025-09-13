@@ -60,13 +60,31 @@ export async function getAllProducts(): Promise<Product[]> {
   return data || [];
 }
 
+// Find a product by exact name (case-insensitive)
+export async function getProductByName(name: string): Promise<Product | null> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .ilike('name', name)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching product by name:', error);
+    return null;
+  }
+
+  return data ?? null;
+}
+
 // Order operations
 export async function createOrder(
   merchantId: string,
   items: Array<{ sku: string; qty: number; price_cents: number }>,
   subtotal: number,
   tax: number,
-  total: number
+  total: number,
+  discountLabel?: string,
+  discountCents?: number
 ): Promise<Order | null> {
   // Start a Supabase transaction
   const { data: order, error: orderError } = await supabase
@@ -76,7 +94,10 @@ export async function createOrder(
       subtotal_cents: subtotal,
       tax_cents: tax,
       total_cents: total,
-      status: 'confirmed_demo'
+      status: 'confirmed_demo',
+      // New discount fields (requires DB migration)
+      discount_cents: typeof discountCents === 'number' ? discountCents : 0,
+      discount_label: discountLabel ?? null
     })
     .select()
     .single();

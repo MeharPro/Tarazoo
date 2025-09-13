@@ -1,13 +1,13 @@
 'use client';
 
 import CameraScanner from 'components/camera-scanner';
-import { useCart } from 'components/cart/cart-context';
+import { useSupabaseCart } from 'components/cart/supabase-cart-context';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 export default function ScannerButton() {
   const [isScanning, setIsScanning] = useState(false);
-  const { addCartItem } = useCart();
+  const { addItem } = useSupabaseCart();
   const router = useRouter();
 
   return (
@@ -34,24 +34,16 @@ export default function ScannerButton() {
 
       {isScanning && (
         <CameraScanner
-          onProductScanned={(shopifyProduct) => {
-            // Use the first variant as default
-            const defaultVariant = shopifyProduct.variants[0];
-            if (defaultVariant) {
-              addCartItem(defaultVariant, shopifyProduct);
-            }
-            
-            // Show a toast or notification
+          onDetected={(product) => {
+            addItem(product);
             const message = document.createElement('div');
             message.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in';
-            message.textContent = `Added ${shopifyProduct.title} to cart`;
+            message.textContent = `Added ${product.name} to cart`;
             document.body.appendChild(message);
             setTimeout(() => {
               message.remove();
             }, 3000);
-
-            // Navigate to the product listing
-            router.push(`/product/${shopifyProduct.handle}`);
+            router.push('/cart');
           }}
           onClose={() => setIsScanning(false)}
         />

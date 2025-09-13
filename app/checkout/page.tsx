@@ -11,6 +11,7 @@ const MERCHANT_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'; // Demo merchant
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, tax, total, clearCart } = useSupabaseCart();
+  const DISCOUNT_LABEL = 'Hack The North Developer Discount';
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,13 +28,15 @@ export default function CheckoutPage() {
         price_cents: item.product.price_cents
       }));
 
-      // Create order in Supabase
+      // Create order in Supabase with full discount to zero out invoice
       const order = await createOrder(
         MERCHANT_ID,
         orderItems,
         subtotal,
         tax,
-        total
+        0, // total is 0 after full discount
+        DISCOUNT_LABEL,
+        total // discount equals the cart total (subtotal + tax)
       );
 
       if (order) {
@@ -222,8 +225,12 @@ export default function CheckoutPage() {
               <dd className="text-sm font-medium text-gray-900">{formatPrice(tax / 100)}</dd>
             </div>
             <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+              <dt className="text-sm font-medium text-green-700">{DISCOUNT_LABEL}</dt>
+              <dd className="text-sm font-medium text-green-700">- {formatPrice(total / 100)}</dd>
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-200 pt-4">
               <dt className="text-base font-medium text-gray-900">Order total</dt>
-              <dd className="text-base font-medium text-gray-900">{formatPrice(total / 100)}</dd>
+              <dd className="text-base font-medium text-gray-900">{formatPrice(0)}</dd>
             </div>
           </dl>
 
