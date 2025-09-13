@@ -54,7 +54,9 @@ function normalizeItem(obj: any): CatalogItem | null {
 
 export async function GET() {
   const data = await readCatalog()
-  return NextResponse.json(data)
+  return NextResponse.json(data, {
+    headers: { 'Cache-Control': 'public, max-age=15, stale-while-revalidate=120' }
+  })
 }
 
 export async function POST(request: Request) {
@@ -119,4 +121,3 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Failed to remove item' }, { status: 500 })
   }
 }
-

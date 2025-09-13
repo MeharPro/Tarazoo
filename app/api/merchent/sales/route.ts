@@ -8,9 +8,10 @@ export async function GET() {
   try {
     const data = await fs.readFile(SALES_PATH, 'utf-8')
     const json = JSON.parse(data)
-    return NextResponse.json(json)
+    return NextResponse.json(json, {
+      headers: { 'Cache-Control': 'public, max-age=15, stale-while-revalidate=120' }
+    })
   } catch (e) {
     return NextResponse.json({ error: 'Failed to read sales.json' }, { status: 500 })
   }
 }
-

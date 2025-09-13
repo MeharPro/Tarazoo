@@ -30,3 +30,28 @@ input,
 button {
   @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50 dark:focus-visible:ring-neutral-600 dark:focus-visible:ring-offset-neutral-900;
 }
+
+/* Subtle throb animation for primary CTAs */
+@keyframes throb {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+.animate-throb {
+  animation: throb 1.2s ease-in-out infinite;
+}
+
+/* Attention ring ping */
+@keyframes ring-ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  80% { transform: scale(1.8); opacity: 0; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.attention-pulse::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at center, rgba(59,130,246,0.25), transparent 70%);
+  animation: ring-ping 1.5s ease-out infinite;
+  pointer-events: none;
+}

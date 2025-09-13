@@ -11,7 +11,7 @@ export default function MerchentProfilePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-3xl px-4 py-10">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Profile</h1>
           <a href="/merchent/logout" className="text-sm text-gray-700 hover:underline">Logout</a>
         </div>
 

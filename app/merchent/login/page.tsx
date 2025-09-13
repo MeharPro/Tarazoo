@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { CtaButton, ClickMe } from 'components/ui/Animated'
 
 export default function MerchentLoginPage() {
   const router = useRouter()
@@ -56,13 +57,16 @@ export default function MerchentLoginPage() {
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full inline-flex justify-center items-center px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
+          <div className="relative">
+            <CtaButton
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? 'Signing in…' : 'Sign in'}
+            </CtaButton>
+            {!loading && <ClickMe />}
+          </div>
           <p className="text-xs text-gray-500">Use merchent / merchent</p>
         </form>
       </div>

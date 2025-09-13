@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { CtaButton, ClickMe } from 'components/ui/Animated'
 
 type Item = {
   sku: string
@@ -19,6 +20,8 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const [zoom, setZoom] = useState<{ sku: string; name: string; data: number[] } | null>(null)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     load()
@@ -116,16 +119,20 @@ export default function CatalogPage() {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Catalogue Manager</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Catalogue Manager</h1>
           <p className="mt-1 text-gray-600">Upload JSON, add/remove SKUs, and view metrics</p>
         </div>
         <div className="flex items-center gap-3">
           <a href="/api/merchent/catalog" className="px-4 py-2 rounded-md border text-sm text-gray-700 hover:bg-gray-50">Download JSON</a>
           <a href="/sample-catalog.json" target="_blank" className="px-4 py-2 rounded-md border text-sm text-gray-700 hover:bg-gray-50">Sample JSON</a>
-          <label className="cursor-pointer px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700">
-            {saving ? 'Uploading…' : 'Upload JSON'}
-            <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={onUpload} />
-          </label>
+          <div className="relative">
+            <label className="cursor-pointer px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 inline-block">
+              {saving ? 'Uploading…' : 'Upload JSON'}
+              <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={onUpload} />
+            </label>
+            {!saving && <ClickMe />}
+          </div>
+          <a href="/merchent/forecasts" className="px-4 py-2 rounded-md border text-sm text-gray-700 hover:bg-gray-50">Open Forecasts</a>
         </div>
       </div>
 
@@ -210,7 +217,13 @@ export default function CatalogPage() {
                       <td className="px-3 py-2">{it.casePack}/{it.moq}</td>
                       <td className="px-3 py-2">${Number(it.sales || 0).toFixed(2)}</td>
                       <td className="px-3 py-2">
-                        <Sparkline data={it.demand52} />
+                        <div
+                          className="cursor-pointer"
+                          onClick={() => setZoom({ sku: it.sku, name: it.name, data: it.demand52 })}
+                          title="Click to expand"
+                        >
+                          <Sparkline data={it.demand52} color="bg-blue-500" />
+                        </div>
                       </td>
                       <td className="px-3 py-2">{it.expiration || '-'}</td>
                       <td className="px-3 py-2">
@@ -257,18 +270,48 @@ export default function CatalogPage() {
           </div>
         )}
       </div>
+      {zoom && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setZoom(null)}>
+          <div className="bg-white text-gray-900 rounded-lg shadow-xl max-w-3xl w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">{zoom.name} ({zoom.sku})</h3>
+                <p className="text-sm text-gray-500">52-week demand</p>
+              </div>
+              <button className="text-gray-600 hover:text-gray-900" onClick={() => setZoom(null)}>✕</button>
+            </div>
+            <Sparkline data={zoom.data} color="bg-blue-500" height={220} width={720} showValues />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function Sparkline({ data }: { data: number[] }) {
+function Sparkline({ data, color = 'bg-blue-500', showValues = false, height = 48, width = 192 }: { data: number[]; color?: string; showValues?: boolean; height?: number; width?: number }) {
   if (!data || !data.length) return <span className="text-gray-400">n/a</span>
   const max = Math.max(...data)
+  const count = data.length
   return (
-    <div className="flex items-end gap-[1px] h-8 w-40">
-      {data.map((v, i) => (
-        <div key={i} className="bg-blue-500" style={{ height: `${max ? (v / max) * 100 : 0}%`, width: 'calc(100% / 52)' }} />
-      ))}
+    <div className="flex items-end gap-[2px]" style={{ height: `${height}px`, width: `${width}px` }}>
+      {data.map((v, i) => {
+        const pct = max ? (v / max) * 100 : 0
+        const inBar = pct > 35
+        return (
+          <div key={i} className="relative" style={{ width: `calc(100% / ${count})`, height: '100%' }}>
+            <div className={`${color} absolute left-0 right-0 bottom-0`} style={{ height: `${pct}%` }} />
+            {showValues && (
+              <span
+                className={`absolute left-1/2 -translate-x-1/2 text-[10px] leading-none select-none ${inBar ? 'text-white' : 'text-gray-700'}`}
+                style={{ bottom: inBar ? '2px' : 'calc(100% + 2px)' }}
+                title={String(v)}
+              >
+                {Math.round(v)}
+              </span>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

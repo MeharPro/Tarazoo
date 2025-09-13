@@ -8,6 +8,7 @@ import { ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import './globals.css';
 import { PageAssistant } from 'components/chat/PageAssistant';
+import { RouteProgress } from 'components/ui/RouteProgress';
 
 const { SITE_NAME } = process.env;
 
@@ -35,6 +36,7 @@ export default async function RootLayout({
       <body className="bg-neutral-50 text-black selection:bg-teal-300 dark:bg-neutral-900 dark:text-white dark:selection:bg-pink-500 dark:selection:text-white">
         <Providers cartPromise={shopifyCartPromise}>
           <TarazooNavbar />
+          <RouteProgress />
           <main>
             {children}
             <Toaster closeButton />

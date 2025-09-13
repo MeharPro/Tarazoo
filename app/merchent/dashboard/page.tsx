@@ -77,7 +77,7 @@ export default function MerchentDashboard() {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Merchent Dashboard</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Merchent Dashboard</h1>
           <p className="mt-1 text-gray-600">JSON-powered sales and inventory</p>
         </div>
         <div className="flex items-center gap-3">
@@ -90,7 +90,7 @@ export default function MerchentDashboard() {
           <button
             onClick={addDemoOrder}
             disabled={adding}
-            className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50 animate-throb attention-pulse"
           >
             {adding ? 'Adding…' : 'Add Demo Order'}
           </button>

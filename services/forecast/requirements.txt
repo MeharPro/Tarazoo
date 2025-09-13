@@ -1,0 +1,8 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+# Bump to versions with broader wheel availability (incl. Python 3.13)
+pydantic==2.9.2
+pydantic-core==2.23.4
+# Pin to a widely available CPU wheel
+torch==2.8.0
+numpy==1.26.4

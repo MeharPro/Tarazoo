@@ -63,7 +63,7 @@ export function PageAssistant({ enabled }: { enabled?: boolean }) {
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="rounded-full bg-blue-600 text-white shadow-lg px-4 py-3 text-sm hover:bg-blue-700"
+          className="relative rounded-full bg-blue-600 text-white shadow-lg px-4 py-3 text-sm hover:bg-blue-700 animate-throb attention-pulse"
           aria-label="Open assistant"
         >
           Need help?
@@ -110,4 +110,3 @@ export function PageAssistant({ enabled }: { enabled?: boolean }) {
     </div>
   );
 }
-
