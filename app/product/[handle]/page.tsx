@@ -8,6 +8,7 @@ import { ProductProvider } from 'components/product/product-context';
 import { ProductDescription } from 'components/product/product-description';
 import { HIDDEN_PRODUCT_TAG } from 'lib/constants';
 import { getProduct, getProductRecommendations } from 'lib/shopify';
+import { syncShopifyProductByHandle } from 'lib/shopify-supabase-sync';
 import { Image } from 'lib/shopify/types';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -16,7 +17,7 @@ export async function generateMetadata(props: {
   params: Promise<{ handle: string }>;
 }): Promise<Metadata> {
   const params = await props.params;
-  const product = await getProduct(params.handle);
+  const product = await getProduct(params.handle, { fresh: true });
 
   if (!product) return notFound();
 
@@ -49,9 +50,13 @@ export async function generateMetadata(props: {
   };
 }
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProductPage(props: { params: Promise<{ handle: string }> }) {
   const params = await props.params;
-  const product = await getProduct(params.handle);
+  // Always sync the clicked product into Supabase and fetch fresh Shopify data
+  await syncShopifyProductByHandle(params.handle);
+  const product = await getProduct(params.handle, { fresh: true });
 
   if (!product) return notFound();
 

@@ -38,6 +38,8 @@ const productFragment = /* GraphQL */ `
             amount
             currencyCode
           }
+          sku
+          barcode
         }
       }
     }

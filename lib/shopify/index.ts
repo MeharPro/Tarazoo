@@ -5,10 +5,13 @@ import {
 } from 'lib/constants';
 import { isShopifyError } from 'lib/type-guards';
 import { ensureStartsWith } from 'lib/utils';
+import { isShopifyConfigured } from './config';
+import { mockProducts, mockCollections, mockMenu, mockCart } from './mock-data';
 import {
   revalidateTag,
   unstable_cacheTag as cacheTag,
-  unstable_cacheLife as cacheLife
+  unstable_cacheLife as cacheLife,
+  unstable_noStore as noStore
 } from 'next/cache';
 import { cookies, headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
@@ -62,7 +65,7 @@ const domain = process.env.SHOPIFY_STORE_DOMAIN
   ? ensureStartsWith(process.env.SHOPIFY_STORE_DOMAIN, 'https://')
   : '';
 const endpoint = `${domain}${SHOPIFY_GRAPHQL_API_ENDPOINT}`;
-const key = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN!;
+const key = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '';
 
 type ExtractVariables<T> = T extends { variables: object }
   ? T['variables']
@@ -77,6 +80,17 @@ export async function shopifyFetch<T>({
   query: string;
   variables?: ExtractVariables<T>;
 }): Promise<{ status: number; body: T } | never> {
+  // Check if Shopify is properly configured
+  if (!isShopifyConfigured()) {
+    console.warn('⚠️ Shopify credentials not configured. Please set SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN in your .env file');
+    throw {
+      cause: 'Shopify not configured',
+      status: 500,
+      message: 'Store configuration is missing. Please configure your Shopify credentials.',
+      query
+    };
+  }
+
   try {
     const result = await fetch(endpoint, {
       method: 'POST',
@@ -264,6 +278,10 @@ export async function updateCart(
 }
 
 export async function getCart(): Promise<Cart | undefined> {
+  if (!isShopifyConfigured()) {
+    return mockCart;
+  }
+
   const cartId = (await cookies()).get('cartId')?.value;
 
   if (!cartId) {
@@ -290,6 +308,10 @@ export async function getCollection(
   cacheTag(TAGS.collections);
   cacheLife('days');
 
+  if (!isShopifyConfigured()) {
+    return mockCollections.find(c => c.handle === handle);
+  }
+
   const res = await shopifyFetch<ShopifyCollectionOperation>({
     query: getCollectionQuery,
     variables: {
@@ -303,15 +325,27 @@ export async function getCollection(
 export async function getCollectionProducts({
   collection,
   reverse,
-  sortKey
+  sortKey,
+  fresh
 }: {
   collection: string;
   reverse?: boolean;
   sortKey?: string;
+  fresh?: boolean;
 }): Promise<Product[]> {
   'use cache';
+  if (fresh) {
+    noStore();
+    revalidateTag(TAGS.collections);
+    revalidateTag(TAGS.products);
+  }
   cacheTag(TAGS.collections, TAGS.products);
   cacheLife('days');
+
+  if (!isShopifyConfigured()) {
+    // Return mock products for demo mode
+    return mockProducts;
+  }
 
   const res = await shopifyFetch<ShopifyCollectionProductsOperation>({
     query: getCollectionProductsQuery,
@@ -336,6 +370,10 @@ export async function getCollections(): Promise<Collection[]> {
   'use cache';
   cacheTag(TAGS.collections);
   cacheLife('days');
+
+  if (!isShopifyConfigured()) {
+    return mockCollections;
+  }
 
   const res = await shopifyFetch<ShopifyCollectionsOperation>({
     query: getCollectionsQuery
@@ -367,6 +405,10 @@ export async function getMenu(handle: string): Promise<Menu[]> {
   'use cache';
   cacheTag(TAGS.collections);
   cacheLife('days');
+
+  if (!isShopifyConfigured()) {
+    return mockMenu;
+  }
 
   const res = await shopifyFetch<ShopifyMenuOperation>({
     query: getMenuQuery,
@@ -403,10 +445,18 @@ export async function getPages(): Promise<Page[]> {
   return removeEdgesAndNodes(res.body.data.pages);
 }
 
-export async function getProduct(handle: string): Promise<Product | undefined> {
+export async function getProduct(handle: string, opts?: { fresh?: boolean }): Promise<Product | undefined> {
   'use cache';
+  if (opts?.fresh) {
+    noStore();
+    revalidateTag(TAGS.products);
+  }
   cacheTag(TAGS.products);
   cacheLife('days');
+
+  if (!isShopifyConfigured()) {
+    return mockProducts.find(p => p.handle === handle);
+  }
 
   const res = await shopifyFetch<ShopifyProductOperation>({
     query: getProductQuery,
@@ -438,15 +488,25 @@ export async function getProductRecommendations(
 export async function getProducts({
   query,
   reverse,
-  sortKey
+  sortKey,
+  fresh
 }: {
   query?: string;
   reverse?: boolean;
   sortKey?: string;
+  fresh?: boolean;
 }): Promise<Product[]> {
   'use cache';
+  if (fresh) {
+    noStore();
+    revalidateTag(TAGS.products);
+  }
   cacheTag(TAGS.products);
   cacheLife('days');
+
+  if (!isShopifyConfigured()) {
+    return mockProducts;
+  }
 
   const res = await shopifyFetch<ShopifyProductsOperation>({
     query: getProductsQuery,
