@@ -3,22 +3,16 @@ import { NextResponse } from 'next/server';
 
 // Middleware for protecting certain routes
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  // If in demo mode, bypass auth for protected routes EXCEPT merchent area and dashboard
-  if (
-    process.env.DEMO_MODE === 'true' &&
-    !pathname.startsWith('/merchent') &&
-    !pathname.startsWith('/dashboard')
-  ) {
+  // If in demo mode, bypass auth for protected routes
+  if (process.env.DEMO_MODE === 'true') {
     return NextResponse.next();
   }
 
-  const { search } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
 
   const isProtected = (
     pathname.startsWith('/merchant') ||
-    pathname.startsWith('/api/minlp') ||
-    pathname.startsWith('/merchent')
+    pathname.startsWith('/api/minlp')
   );
 
   if (!isProtected) {
@@ -26,23 +20,19 @@ export function middleware(req: NextRequest) {
   }
 
   // Default cookie set by auth provider
-  const hasAppSession = Boolean(req.cookies.get('appSession'));
-  const hasMerchentSession = Boolean(req.cookies.get('merchent_session'));
-
-  // Allow merchent login page & merchent auth routes
-  if (pathname.startsWith('/merchent/login') || pathname.startsWith('/api/merchent')) {
-    return NextResponse.next();
-  }
-
-  if (!(hasAppSession || hasMerchentSession)) {
-    // For any protected path, prefer merchent login screen by default
-    const url = new URL('/merchent/login', req.url);
-    return NextResponse.redirect(url);
+  const hasSession = Boolean(req.cookies.get('appSession'));
+  if (!hasSession) {
+    const loginUrl = new URL('/api/auth/login', req.url);
+    // Always send users to the dashboard after login
+    loginUrl.searchParams.set('returnTo', '/dashboard');
+    // Force Google connection for the gimmick flow
+    loginUrl.searchParams.set('connection', 'google-oauth2');
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/merchant/:path*', '/api/minlp/:path*', '/merchent/:path*', '/api/merchent/:path*', '/dashboard']
+  matcher: ['/merchant/:path*', '/api/minlp/:path*']
 };
