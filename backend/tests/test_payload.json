@@ -1,0 +1,29 @@
+{
+  "skus": [
+    {"sku": "A", "supplier": "S1", "pack_size": 12, "unit_price": 2.0, "requested_units": 120},
+    {"sku": "B", "supplier": "S1", "pack_size": 12, "unit_price": 3.0, "requested_units": 60},
+
+    {"sku": "C", "supplier": "S2", "pack_size": 24, "unit_price": 1.5, "requested_units": 240},
+
+    {"sku": "D", "supplier": "S3", "pack_size": 10, "unit_price": 5.0, "requested_units": 350},
+
+    {"sku": "E", "supplier": "S4", "pack_size": 6, "unit_price": 2.0, "requested_units": 24},
+    {"sku": "F", "supplier": "S4", "pack_size": 6, "unit_price": 2.0, "requested_units": 12}
+  ],
+  "suppliers": {
+    "S1": {"moq_units": 240, "max_units": 1000},
+    "S2": {"moq_units": 200, "max_units": 400},
+    "S3": {"moq_units": 100, "max_units": 300},
+    "S4": {}
+  },
+  "bundles": [
+    {"name": "B_S1", "skus": ["A", "B"], "bundle_pack_multiple": 5}
+  ],
+  "ratios": [
+    {"name": "R_S4", "items": [
+      {"sku": "E", "weight": 2},
+      {"sku": "F", "weight": 1}
+    ]}
+  ]
+}
+
