@@ -25,6 +25,12 @@ export function TarazooNavbar() {
             Shop
           </Link>
           <Link
+            href="/merchent/catalog"
+            className="text-neutral-600 hover:text-black transition-colors"
+          >
+            Catalogue
+          </Link>
+          <Link
             href={`/merchant/${defaultMerchantId}`}
             className="text-neutral-600 hover:text-black transition-colors"
           >
