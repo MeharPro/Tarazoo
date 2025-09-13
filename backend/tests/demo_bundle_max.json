@@ -1,0 +1,14 @@
+{
+  "skus": [
+    {"sku": "G", "supplier": "S5", "pack_size": 10, "unit_price": 2.0, "requested_units": 50},
+    {"sku": "H", "supplier": "S5", "pack_size": 10, "unit_price": 1.8, "requested_units": 40}
+  ],
+  "suppliers": {
+    "S5": {"max_units": 80}
+  },
+  "bundles": [
+    {"name": "B_S5", "skus": ["G", "H"], "bundle_pack_multiple": 4}
+  ],
+  "ratios": []
+}
+

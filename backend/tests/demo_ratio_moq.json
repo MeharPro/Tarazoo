@@ -1,0 +1,17 @@
+{
+  "skus": [
+    {"sku": "E", "supplier": "S4", "pack_size": 8, "unit_price": 1.0, "requested_units": 24},
+    {"sku": "F", "supplier": "S4", "pack_size": 4, "unit_price": 1.2, "requested_units": 4}
+  ],
+  "suppliers": {
+    "S4": {"moq_units": 80}
+  },
+  "bundles": [],
+  "ratios": [
+    {"name": "R_S4", "items": [
+      {"sku": "E", "weight": 3},
+      {"sku": "F", "weight": 1}
+    ]}
+  ]
+}
+
