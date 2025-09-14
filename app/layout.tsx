@@ -22,6 +22,9 @@ export const metadata = {
   }
 };
 
+// Ensure dynamic rendering so cookie-based navbar updates immediately after login/logout
+export const dynamic = 'force-dynamic';
+
 export default async function RootLayout({
   children
 }: {
