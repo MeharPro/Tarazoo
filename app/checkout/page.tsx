@@ -37,13 +37,14 @@ export default function CheckoutPage() {
         price_cents: item.product.price_cents
       }));
 
-      // Create order in Supabase with optional discount
+      // Create order in Supabase
+      // Important: send totals BEFORE discount to Supabase (track discount separately)
       const order = await createOrder(
         MERCHANT_ID,
         orderItems,
         subtotal,
         tax,
-        finalTotal,
+        total,
         discountCents > 0 ? DISCOUNT_LABEL : undefined,
         discountCents > 0 ? discountCents : undefined
       );
