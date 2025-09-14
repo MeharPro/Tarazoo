@@ -39,7 +39,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('tarazoo_cart', JSON.stringify(items));
   }, [items]);
 
-  const addItem = (product: Product) => {
+    const addItem = (product: Product) => {
     setItems(prevItems => {
       const existingItem = prevItems.find(item => item.product.product_id === product.product_id);
       
@@ -55,12 +55,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const removeItem = (productId: string) => {
+    const removeItem = (productId: string) => {
     setItems(prevItems => prevItems.filter(item => item.product.product_id !== productId));
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
+    const updateQuantity = (productId: string, quantity: number) => {
+        if (quantity <= 0) {
       removeItem(productId);
       return;
     }
@@ -87,7 +87,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{
+            value={{
         items,
         addItem,
         removeItem,

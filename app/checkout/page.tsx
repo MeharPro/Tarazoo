@@ -11,9 +11,15 @@ const MERCHANT_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'; // Demo merchant
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, tax, total, clearCart } = useSupabaseCart();
-  const DISCOUNT_LABEL = 'Hack The North Developer Discount';
+  const DISCOUNT_LABEL = 'Hack The North Discount';
+  const [discountCode, setDiscountCode] = useState('');
+  const [discountApplied, setDiscountApplied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const normalizedCode = discountCode.trim().toUpperCase();
+  const discountCents = discountApplied && normalizedCode === 'HTNDEV' ? total : 0;
+  const finalTotal = Math.max(0, total - discountCents);
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,6 +27,9 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
+      // Show a brief loading screen to simulate processing
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Prepare order items
       const orderItems = items.map(item => ({
         sku: item.product.sku,
@@ -28,15 +37,15 @@ export default function CheckoutPage() {
         price_cents: item.product.price_cents
       }));
 
-      // Create order in Supabase with full discount to zero out invoice
+      // Create order in Supabase with optional discount
       const order = await createOrder(
         MERCHANT_ID,
         orderItems,
         subtotal,
         tax,
-        0, // total is 0 after full discount
-        DISCOUNT_LABEL,
-        total // discount equals the cart total (subtotal + tax)
+        finalTotal,
+        discountCents > 0 ? DISCOUNT_LABEL : undefined,
+        discountCents > 0 ? discountCents : undefined
       );
 
       if (order) {
@@ -66,6 +75,14 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
+      {isProcessing && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
+          <div className="flex flex-col items-center gap-4 rounded-xl bg-white px-8 py-6 shadow-xl">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+            <p className="text-gray-800">Processing payment...</p>
+          </div>
+        </div>
+      )}
       <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">Checkout</h1>
 
       <div className="mt-12 lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-12 xl:gap-x-16">
@@ -180,14 +197,7 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            <div className="mt-10">
-              <h3 className="text-lg font-medium text-gray-900">Payment (Demo Mode)</h3>
-              <div className="mt-6 rounded-lg bg-yellow-50 p-4">
-                <p className="text-sm text-yellow-800">
-                  This is a demo checkout. No payment will be processed.
-                </p>
-              </div>
-            </div>
+            {/* Payment section removed */}
 
             {error && (
               <div className="mt-6 rounded-lg bg-red-50 p-4">
@@ -227,15 +237,51 @@ export default function CheckoutPage() {
               </dt>
               <dd className="text-sm font-medium text-gray-900">{formatPrice(tax / 100)}</dd>
             </div>
-            <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-              <dt className="text-sm font-medium text-green-700">{DISCOUNT_LABEL}</dt>
-              <dd className="text-sm font-medium text-green-700">- {formatPrice(total / 100)}</dd>
-            </div>
+            {discountCents > 0 && (
+              <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+                <dt className="text-sm font-medium text-green-700">{DISCOUNT_LABEL}</dt>
+                <dd className="text-sm font-medium text-green-700">- {formatPrice(discountCents / 100)}</dd>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-gray-200 pt-4">
               <dt className="text-base font-medium text-gray-900">Order total</dt>
-              <dd className="text-base font-medium text-gray-900">{formatPrice(0)}</dd>
+              <dd className="text-base font-medium text-gray-900">{formatPrice(finalTotal / 100)}</dd>
             </div>
           </dl>
+
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Discount code</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={discountCode}
+                onChange={(e) => setDiscountCode(e.target.value)}
+                placeholder="Enter code (e.g., HTNDEV)"
+                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2"
+              />
+              <button
+                type="button"
+                onClick={() => setDiscountApplied(true)}
+                className="rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900"
+              >
+                Apply
+              </button>
+            </div>
+            {discountApplied && normalizedCode !== 'HTNDEV' && (
+              <p className="mt-2 text-sm text-red-600">Invalid code</p>
+            )}
+            {discountCents > 0 && (
+              <p className="mt-2 text-sm text-green-700">Code applied: 100% off</p>
+            )}
+          </div>
+
+          {/* Extra clarity: show original total and savings */}
+          <div className="mt-4 text-sm text-gray-600">
+            <p>Original total: <span className="font-medium text-gray-900">{formatPrice(total / 100)}</span></p>
+            {discountCents > 0 && (
+              <p>You save: <span className="font-medium text-green-700">{formatPrice(discountCents / 100)}</span></p>
+            )}
+          </div>
 
           <div className="mt-6">
             <h3 className="text-sm font-medium text-gray-900">Items</h3>

@@ -1,12 +1,33 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { supabase } from 'lib/supabase';
+import { formatPrice } from 'lib/utils';
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams?.get('orderId');
+  const [amountProcessed, setAmountProcessed] = useState<number | null>(null);
+  const [discountInfo, setDiscountInfo] = useState<{ label?: string | null; cents?: number } | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!orderId) return;
+      const { data } = await supabase
+        .from('orders')
+        .select('subtotal_cents, tax_cents, discount_cents, discount_label, total_cents')
+        .eq('order_id', orderId)
+        .maybeSingle();
+      if (data) {
+        const original = (data.subtotal_cents || 0) + (data.tax_cents || 0);
+        setAmountProcessed(original);
+        setDiscountInfo({ label: data.discount_label, cents: data.discount_cents });
+      }
+    };
+    load();
+  }, [orderId]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-24 pt-16 sm:px-6 lg:max-w-7xl lg:px-8">
@@ -22,6 +43,20 @@ function SuccessContent() {
         <p className="mt-4 text-lg text-gray-600">
           Thank you for your order. Your order has been successfully placed and will be processed shortly.
         </p>
+
+        {amountProcessed !== null && (
+          <div className="mt-4 p-4 bg-green-50 rounded-lg">
+            <p className="text-sm text-green-800">
+              Processed amount (pre-discount): <span className="font-semibold">{formatPrice(amountProcessed / 100)}</span>
+              {discountInfo?.cents ? (
+                <>
+                  {' '} · Discount: <span className="font-semibold">-{formatPrice((discountInfo.cents || 0) / 100)}</span>
+                  {discountInfo?.label ? ` (${discountInfo.label})` : ''}
+                </>
+              ) : null}
+            </p>
+          </div>
+        )}
 
         {orderId && (
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
