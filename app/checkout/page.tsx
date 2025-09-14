@@ -40,6 +40,15 @@ export default function CheckoutPage() {
       );
 
       if (order) {
+        // Decrement inventory overrides based on items purchased
+        try {
+          await fetch('/api/inventory/decrement', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: orderItems })
+          })
+        } catch {}
+
         // Clear the cart
         clearCart();
         

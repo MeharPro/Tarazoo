@@ -245,3 +245,157 @@ export function subscribeToMinlpRuns(
     )
     .subscribe();
 }
+
+// ========= Catalog helpers =========
+export type CatalogItem = {
+  sku: string;
+  merchant_id: string;
+  name: string;
+  supplier?: string | null;
+  country?: string | null;
+  case_pack?: number | null;
+  moq?: number | null;
+  sales?: number | null;
+  demand52?: number[] | null;
+  forecasted_demand?: number[] | null;
+  expiration?: string | null;
+};
+
+export async function getCatalogItems(merchantId: string): Promise<CatalogItem[]> {
+  const { data, error } = await supabase
+    .from('catalog_items')
+    .select('*')
+    .eq('merchant_id', merchantId)
+    .order('name', { ascending: true });
+  if (error) {
+    console.error('getCatalogItems error:', error);
+    return [];
+  }
+  return (data as CatalogItem[]) || [];
+}
+
+export async function upsertCatalogItems(items: Omit<CatalogItem, 'merchant_id'>[], merchantId: string): Promise<boolean> {
+  if (!items?.length) return true;
+  const payload = items.map((it) => ({ ...it, merchant_id: merchantId }));
+  const client = supabaseServiceKey ? (supabaseAdmin as typeof supabase) : supabase;
+  const { error } = await client.from('catalog_items').upsert(payload, { onConflict: 'sku' });
+  if (error) {
+    console.error('upsertCatalogItems error:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function deleteCatalogItem(sku: string, merchantId: string): Promise<boolean> {
+  const client = supabaseServiceKey ? (supabaseAdmin as typeof supabase) : supabase;
+  const { error } = await client.from('catalog_items').delete().match({ sku, merchant_id: merchantId });
+  if (error) {
+    console.error('deleteCatalogItem error:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function updateForecastForSkus(forecasts: Record<string, number[]>, merchantId: string): Promise<number> {
+  const entries = Object.entries(forecasts);
+  if (!entries.length) return 0;
+  const client = supabaseServiceKey ? (supabaseAdmin as typeof supabase) : supabase;
+  let updated = 0;
+  for (const [sku, arr] of entries) {
+    const { error } = await client
+      .from('catalog_items')
+      .update({ forecasted_demand: arr })
+      .match({ sku, merchant_id: merchantId });
+    if (error) {
+      console.error('updateForecastForSkus error:', error);
+      continue;
+    }
+    updated += 1;
+  }
+  return updated;
+}
+
+// Record audit entries for adjustments
+export async function recordAdjustmentEntries(entries: Array<{
+  merchant_id: string;
+  sku: string;
+  provider?: string;
+  prompt?: string;
+  weights?: number[] | null;
+  factor?: number | null;
+  score?: number | null;
+}>): Promise<boolean> {
+  if (!entries?.length) return true;
+  const client = supabaseServiceKey ? (supabaseAdmin as typeof supabase) : supabase;
+  const payload = entries.map((e) => ({
+    merchant_id: e.merchant_id,
+    sku: e.sku,
+    provider: e.provider ?? null,
+    prompt: e.prompt ?? null,
+    weights: Array.isArray(e.weights) ? e.weights : null,
+    factor: typeof e.factor === 'number' ? e.factor : null,
+    score: typeof e.score === 'number' ? e.score : null,
+  }));
+  const { error } = await client.from('catalog_adjustments').insert(payload);
+  if (error) {
+    console.error('recordAdjustmentEntries error:', error);
+    return false;
+  }
+  return true;
+}
+
+// ========= Inventory & Sales helpers =========
+export async function getInventoryForMerchant(merchantId: string) {
+  const { data, error } = await supabase
+    .from('products')
+    .select('sku,name,price_cents,inventory_quantity,updated_at,category')
+    .eq('merchant_id', merchantId)
+    .order('name');
+  if (error) {
+    console.warn('getInventoryForMerchant error:', error);
+    return [];
+  }
+  return (data || []).map((p: any, idx: number) => ({
+    id: String(idx + 1),
+    name: p.name,
+    sku: p.sku,
+    category: p.category ?? null,
+    available_quantity: p.inventory_quantity ?? 0,
+    warehouse_quantity: p.inventory_quantity ?? 0,
+    reserved_quantity: 0,
+    selling_price: typeof p.price_cents === 'number' ? p.price_cents / 100 : null,
+  }));
+}
+
+export async function getSalesTransactions(merchantId: string) {
+  const { data: items, error } = await supabase
+    .from('order_items')
+    .select('id,order_id,sku,qty,price_cents,orders!inner(created_at,merchant_id,status)')
+    .eq('orders.merchant_id', merchantId)
+    .order('orders.created_at', { ascending: false });
+  if (error) {
+    console.warn('getSalesTransactions error:', error);
+    return [];
+  }
+  const skus = Array.from(new Set((items || []).map((it: any) => it.sku)));
+  const nameBySku: Record<string, string> = {};
+  if (skus.length) {
+    const { data: prods } = await supabase
+      .from('products')
+      .select('sku,name')
+      .in('sku', skus)
+      .eq('merchant_id', merchantId);
+    (prods || []).forEach((p: any) => (nameBySku[p.sku] = p.name));
+  }
+  return (items || []).map((it: any) => ({
+    id: it.id,
+    product_id: it.sku,
+    product_name: nameBySku[it.sku] || it.sku,
+    quantity: it.qty,
+    unit_price: (it.price_cents || 0) / 100,
+    total_amount: ((it.price_cents || 0) * (it.qty || 0)) / 100,
+    sale_date: (it.orders?.created_at || '').slice(0, 10),
+    customer_id: 'N/A',
+    status: it.orders?.status || 'completed',
+  }));
+}

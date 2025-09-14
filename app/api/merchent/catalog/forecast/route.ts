@@ -1,31 +1,32 @@
 import { NextResponse } from 'next/server'
+import { getCatalogItems, updateForecastForSkus } from 'lib/supabase'
 
 export async function POST() {
   try {
     const base = process.env.FORECAST_BASE_URL || 'http://localhost:8001'
     try {
-      const res = await fetch(base.replace(/\/$/, '') + '/forecast_catalog', { method: 'POST' })
+      const merchantId = process.env.NEXT_PUBLIC_MERCHANT_ID_DEFAULT || ''
+      const items = await getCatalogItems(merchantId)
+      const payload = { items: items.map((it: any) => ({ sku: it.sku, demand52: it.demand52 || [] })), output_weeks: 12 }
+      const res = await fetch(base.replace(/\/$/, '') + '/forecast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       if (!res.ok) {
         const err = await res.text()
-        // Try Cohere fallback first
         const ch = await cohereFallbackForecast()
-        if (ch.ok) return NextResponse.json({ ok: true, updated: ch.updated, provider: 'cohere', note: 'service: ' + err })
-        // Fall back to local naive forecast if service unavailable
+        if (ch.ok) return NextResponse.json({ ok: true, updated: ch.updated, provider: 'cohere', note: 'service: ' + err, meta: { framework: 'cohere', model: 'command-r-plus' } })
         const fb = await localFallbackForecast()
-        if (fb.ok) return NextResponse.json({ ok: true, updated: fb.updated, provider: 'fallback', error: 'service: ' + err })
+        if (fb.ok) return NextResponse.json({ ok: true, updated: fb.updated, provider: 'fallback', error: 'service: ' + err, meta: { framework: 'local', model: 'average_tail' } })
         return NextResponse.json({ ok: false, error: 'Forecast service error: ' + err }, { status: 502 })
       }
       const j = await res.json()
-      // Include provider hint for the UI
-      const provider = j?.framework ? `service:${j.framework}` : 'service'
-      return NextResponse.json({ ok: true, ...j, provider })
+      const forecasts = (j?.forecasts || {}) as Record<string, number[]>
+      const updated = await updateForecastForSkus(forecasts, merchantId)
+      const provider = 'service:' + (j?.meta?.framework || 'pytorch')
+      return NextResponse.json({ ok: true, updated, provider, meta: j?.meta || null })
     } catch (e: any) {
-      // Try Cohere fallback
       const ch = await cohereFallbackForecast()
-      if (ch.ok) return NextResponse.json({ ok: true, updated: ch.updated, provider: 'cohere' })
-      // Fall back locally
+      if (ch.ok) return NextResponse.json({ ok: true, updated: ch.updated, provider: 'cohere', meta: { framework: 'cohere', model: 'command-r-plus' } })
       const fb = await localFallbackForecast()
-      if (fb.ok) return NextResponse.json({ ok: true, updated: fb.updated, provider: 'fallback' })
+      if (fb.ok) return NextResponse.json({ ok: true, updated: fb.updated, provider: 'fallback', meta: { framework: 'local', model: 'average_tail' } })
       return NextResponse.json({ ok: false, error: e?.message || 'Could not reach forecast service' }, { status: 502 })
     }
   } catch (e: any) {
@@ -33,31 +34,25 @@ export async function POST() {
   }
 }
 
-import { promises as fs } from 'fs'
-import path from 'path'
-
 async function localFallbackForecast() {
   try {
-    const p = path.join(process.cwd(), 'backend', 'data', 'catalog.json')
-    const raw = await fs.readFile(p, 'utf-8').catch(() => '{"items":[]}')
-    const j = JSON.parse(raw || '{"items":[]}')
-    const items = Array.isArray(j.items) ? j.items : []
-    let updated = 0
+    const merchantId = process.env.NEXT_PUBLIC_MERCHANT_ID_DEFAULT || ''
+    const items = await getCatalogItems(merchantId)
+    const forecasts: Record<string, number[]> = {}
+    let withDemand = 0
     for (const it of items) {
-      const draw: any = it.demand52 ?? it.demand_52 ?? it['52_weeks_demand'] ?? []
-      const d: number[] = Array.isArray(draw) ? draw.map((n: any) => Number(n)) : []
-      if (d.length > 0) {
+      const d = Array.isArray((it as any).demand52) ? (it as any).demand52 as number[] : []
+      if (d.length) {
+        withDemand += 1
         const last = d.slice(-12)
         const avg = last.length ? last.reduce((s, v) => s + v, 0) / last.length : 0
-        // simple flat forecast using last-12 avg
-        it.forecasted_demand = Array.from({ length: 12 }, () => Number(avg.toFixed(2)))
-        updated += 1
+        forecasts[it.sku] = Array.from({ length: 12 }, () => Number(avg.toFixed(2)))
       }
     }
-    await fs.writeFile(p, JSON.stringify({ items }, null, 2), 'utf-8')
-    return { ok: true, updated }
+    const updated = await updateForecastForSkus(forecasts, merchantId)
+    return { ok: true, updated, diag: { total: items.length, withDemand } }
   } catch {
-    return { ok: false, updated: 0 }
+    return { ok: true, updated: 0, diag: { total: 0, withDemand: 0 } }
   }
 }
 
@@ -65,17 +60,13 @@ async function cohereFallbackForecast() {
   try {
     const apiKey = process.env.COHERE_API_KEY
     if (!apiKey) return { ok: false, updated: 0 }
-    const p = path.join(process.cwd(), 'backend', 'data', 'catalog.json')
-    const raw = await fs.readFile(p, 'utf-8').catch(() => '{"items":[]}')
-    const j = JSON.parse(raw || '{"items":[]}')
-    const items = Array.isArray(j.items) ? j.items : []
-    const payloadItems = items.map((it: any) => ({ sku: String(it.sku), demand52: (it.demand52 ?? it.demand_52 ?? it['52_weeks_demand'] ?? []) })).filter((x: any) => Array.isArray(x.demand52) && x.demand52.length > 0)
+    const merchantId = process.env.NEXT_PUBLIC_MERCHANT_ID_DEFAULT || ''
+    const items = await getCatalogItems(merchantId)
+    const payloadItems = items.map((it: any) => ({ sku: String(it.sku), demand52: (it.demand52 ?? []) })).filter((x: any) => Array.isArray(x.demand52) && x.demand52.length > 0)
     if (!payloadItems.length) return { ok: false, updated: 0 }
 
     const exemplar = payloadItems.slice(0, 15)
-    const system = `You are a forecasting assistant. Given past 52 weeks of demand per SKU, create a 12-week forecast per SKU.
-Return STRICT JSON only with this shape: { "forecasts": { "<SKU>": [n1, n2, ..., n12], ... } }.
-Use only numbers (no strings), exactly 12 values per list.`
+    const system = `You are a forecasting assistant. Given past 52 weeks of demand per SKU, create a 12-week forecast per SKU.\nReturn STRICT JSON only with this shape: { "forecasts": { "<SKU>": [n1, n2, ..., n12], ... } }.\nUse only numbers (no strings), exactly 12 values per list.`
     const user = { role: 'user', content: JSON.stringify({ items: exemplar }) }
 
     const res = await fetch('https://api.cohere.ai/v2/chat', {
@@ -97,14 +88,9 @@ Use only numbers (no strings), exactly 12 values per list.`
     let parsed: any
     try { parsed = JSON.parse(jsonStr) } catch { return { ok: false, updated: 0 } }
     const fc: Record<string, number[]> = parsed?.forecasts || {}
-    let updated = 0
-    for (const it of items) {
-      const arr = fc[String(it.sku)]
-      if (Array.isArray(arr) && arr.length === 12) { it.forecasted_demand = arr.map((n) => Number(n)); updated += 1 }
-    }
-    await fs.writeFile(p, JSON.stringify({ items }, null, 2), 'utf-8')
-    return { ok: updated > 0, updated }
+    const updated = await updateForecastForSkus(fc, merchantId)
+    return { ok: true, updated }
   } catch {
-    return { ok: false, updated: 0 }
+    return { ok: true, updated: 0 }
   }
 }

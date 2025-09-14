@@ -46,6 +46,7 @@ export function TarazooNavbar() {
               title={forecastAvailable ? 'Forecasts available' : 'Using fallback'}
             />
           </Link>
+          <Link href="/merchent/purchase-orders/design" className="text-neutral-600 hover:text-black transition-colors">PO Design</Link>
           <Link href={`/merchant/${defaultMerchantId}`} className="text-neutral-600 hover:text-black transition-colors">Merchant</Link>
         </div>
       </div>

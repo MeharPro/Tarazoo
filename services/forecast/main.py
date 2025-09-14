@@ -82,14 +82,21 @@ else:
             pass
 
 
-def train_and_forecast(items: List[Series], output_weeks: int = 12) -> Dict[str, List[float]]:
+def train_and_forecast(items: List[Series], output_weeks: int = 12):
     # Fallback to naive if torch unavailable
     if torch is None or nn is None:
         result: Dict[str, List[float]] = {}
         for it in items:
             hist = it.demand52[-output_weeks:]
             result[it.sku] = list(hist)
-        return result
+        meta = {
+            "framework": "naive",
+            "model": "average_tail",
+            "epochs": 0,
+            "loss": None,
+            "layers": []
+        }
+        return result, meta
 
     # Prepare a tiny dataset: For each SKU, input=full 52 vector, target=last `output_weeks` of that vector
     X = []
@@ -113,12 +120,15 @@ def train_and_forecast(items: List[Series], output_weeks: int = 12) -> Dict[str,
 
     # Train briefly (demo)
     model.train()
-    for _ in range(300):
+    last_loss = None
+    epochs = 300
+    for _ in range(epochs):
         optimizer.zero_grad()
         pred = model(X)
         loss = criterion(pred, Y)
         loss.backward()
         optimizer.step()
+        last_loss = float(loss.detach().cpu().item())
 
     # Forecast: use the latest 52 weeks as input
     model.eval()
@@ -130,7 +140,14 @@ def train_and_forecast(items: List[Series], output_weeks: int = 12) -> Dict[str,
         yhat = [float(max(0.0, v)) for v in preds[i].tolist()]
         forecasts[ it.sku ] = yhat
 
-    return forecasts
+    meta = {
+        "framework": "pytorch",
+        "model": "MLP",
+        "epochs": epochs,
+        "loss": last_loss,
+        "layers": [52, 128, 64, output_weeks]
+    }
+    return forecasts, meta
 
 
 @app.get("/")
@@ -138,11 +155,11 @@ def root():
     return {"status": "ok", "framework": "pytorch" if torch is not None else "naive"}
 
 
-@app.post("/forecast", response_model=ForecastResponse)
+@app.post("/forecast")
 def forecast(req: ForecastRequest):
     try:
-        forecasts = train_and_forecast(req.items, req.output_weeks)
-        return ForecastResponse(forecasts=forecasts)
+        forecasts, meta = train_and_forecast(req.items, req.output_weeks)
+        return {"forecasts": forecasts, "meta": meta}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -164,7 +181,7 @@ def forecast_catalog():
                     d = d[-52:]
                 series.append(Series(sku=str(it.get("sku")), demand52=d))
 
-        fc = train_and_forecast(series, 12)
+        fc, meta = train_and_forecast(series, 12)
 
         # write back to catalog
         for it in items:
@@ -174,7 +191,7 @@ def forecast_catalog():
 
         _save_catalog({"items": items})
         framework = "pytorch" if torch is not None and nn is not None else "naive"
-        return {"ok": True, "updated": len(fc), "framework": framework}
+        return {"ok": True, "updated": len(fc), "framework": framework, "meta": meta}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
