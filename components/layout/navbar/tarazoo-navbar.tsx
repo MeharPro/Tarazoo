@@ -36,8 +36,8 @@ export function TarazooNavbar() {
 
         <div className="hidden md:flex items-center gap-6">
           <Link href="/" className="text-neutral-600 hover:text-black transition-colors">Shop</Link>
-          <Link href="/merchent/catalog" className="text-neutral-600 hover:text-black transition-colors">Catalogue</Link>
-          <Link href="/merchent/sales" className="text-neutral-600 hover:text-black transition-colors">Sales</Link>
+          <Link href="/dashboard" className="text-neutral-600 hover:text-black transition-colors">Dashboard</Link><Link href="/merchent/catalog" className="text-neutral-600 hover:text-black transition-colors">Catalogue</Link>
+          <Link href="/sales" className="text-neutral-600 hover:text-black transition-colors">Sales</Link>
           <Link href="/merchent/inventory" className="text-neutral-600 hover:text-black transition-colors">Inventory</Link>
           <Link href="/merchent/forecasts" className="text-neutral-600 hover:text-black transition-colors flex items-center gap-1">
             <span>Forecasts</span>
