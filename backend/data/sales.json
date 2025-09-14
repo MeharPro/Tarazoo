@@ -1,0 +1,60 @@
+{
+  "sales": [
+    {
+      "id": "SALE-001",
+      "product_id": "1",
+      "product_name": "Premium Wireless Headphones",
+      "quantity": 5,
+      "unit_price": 199.99,
+      "total_amount": 999.95,
+      "sale_date": "2024-01-28",
+      "customer_id": "CUST-001",
+      "status": "completed"
+    },
+    {
+      "id": "SALE-002",
+      "product_id": "2",
+      "quantity": 3,
+      "product_name": "Smart Fitness Watch",
+      "unit_price": 299.99,
+      "total_amount": 899.97,
+      "sale_date": "2024-01-27",
+      "customer_id": "CUST-002",
+      "status": "completed"
+    },
+    {
+      "id": "SALE-003",
+      "product_id": "3",
+      "quantity": 8,
+      "product_name": "Bluetooth Speaker",
+      "unit_price": 89.99,
+      "total_amount": 719.92,
+      "sale_date": "2024-01-26",
+      "customer_id": "CUST-003",
+      "status": "completed"
+    },
+    {
+      "id": "SALE-004",
+      "product_id": "4",
+      "quantity": 12,
+      "product_name": "Wireless Charging Pad",
+      "unit_price": 49.99,
+      "total_amount": 599.88,
+      "sale_date": "2024-01-25",
+      "customer_id": "CUST-004",
+      "status": "completed"
+    }
+  ],
+  "weekly_sales": [
+    {"week": 1, "total_revenue": 2850.50, "units_sold": 45},
+    {"week": 2, "total_revenue": 3200.75, "units_sold": 52},
+    {"week": 3, "total_revenue": 2950.25, "units_sold": 48},
+    {"week": 4, "total_revenue": 3500.00, "units_sold": 58}
+  ],
+  "monthly_sales": [
+    {"month": "January", "total_revenue": 12501.50, "units_sold": 203},
+    {"month": "December", "total_revenue": 11850.25, "units_sold": 195},
+    {"month": "November", "total_revenue": 10950.75, "units_sold": 178}
+  ]
+}
+
