@@ -1,10 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
 import { useSupabaseCart } from 'components/cart/supabase-cart-context';
 import { formatPrice } from 'lib/utils';
+import Link from 'next/link';
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, subtotal, tax, total, clearCart } = useSupabaseCart();
