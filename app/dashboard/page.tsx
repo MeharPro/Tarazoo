@@ -5,10 +5,12 @@ import { subscribeToMinlpRuns, getLatestMinlpRun, createMinlpRun } from 'lib/sup
 import type { MinlpRun } from 'packages/shared/types';
 import { formatPrice } from 'lib/utils';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const MERCHANT_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [latestMinlpRun, setLatestMinlpRun] = useState<MinlpRun | null>(null);
   const [isRunningMinlp, setIsRunningMinlp] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -37,27 +39,21 @@ export default function DashboardPage() {
   const runMinlpOptimization = async () => {
     setIsRunningMinlp(true);
     try {
-      const response = await fetch('/api/minlp/solve', {
+      // Fire-and-navigate: start solve then send user to PO Design
+      void fetch('/api/minlp/solve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           merchantId: MERCHANT_ID,
-          // Use sample data for optimization since we removed orders from dashboard
           orders: [
             { order_id: 'sample-1', total_cents: 2500, created_at: new Date().toISOString() },
             { order_id: 'sample-2', total_cents: 1800, created_at: new Date().toISOString() },
             { order_id: 'sample-3', total_cents: 3200, created_at: new Date().toISOString() }
           ]
         })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        await loadLatestMinlpRun();
-      }
-    } catch (error) {
-      console.error('MINLP optimization failed:', error);
+      }).catch((err) => console.error('MINLP optimization failed:', err));
     } finally {
+      router.push('/merchent/purchase-orders/design');
       setIsRunningMinlp(false);
     }
   };

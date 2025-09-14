@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { getOrders, subscribeToOrders, subscribeToMinlpRuns, getLatestMinlpRun } from 'lib/supabase';
 import type { Order, MinlpRun } from 'packages/shared/types';
 import { formatPrice } from 'lib/utils';
+import { useRouter } from 'next/navigation';
 
 export function DashboardClient({ merchantId }: { merchantId: string }) {
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [latestMinlpRun, setLatestMinlpRun] = useState<MinlpRun | null>(null);
   const [isRunningMinlp, setIsRunningMinlp] = useState(false);
@@ -48,21 +50,14 @@ export function DashboardClient({ merchantId }: { merchantId: string }) {
   const runMinlpOptimization = async () => {
     setIsRunningMinlp(true);
     try {
-      const response = await fetch('/api/minlp/solve', {
+      // Fire-and-navigate: kick off solve, then go to PO Design
+      void fetch('/api/minlp/solve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          merchantId,
-          orders: orders.slice(0, 5)
-        })
-      });
-
-      if (response.ok) {
-        await loadLatestMinlpRun();
-      }
-    } catch (error) {
-      console.error('MINLP optimization failed:', error);
+        body: JSON.stringify({ merchantId, orders: orders.slice(0, 5) })
+      }).catch((err) => console.error('MINLP optimization failed:', err));
     } finally {
+      router.push('/merchent/purchase-orders/design');
       setIsRunningMinlp(false);
     }
   };
