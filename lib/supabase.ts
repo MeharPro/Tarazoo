@@ -116,6 +116,8 @@ export async function createOrder(
   discountLabel?: string,
   discountCents?: number
 ): Promise<Order | null> {
+  // Always persist pre-discount total to Supabase
+  const preDiscountTotal = Math.max(0, Math.round(Number(subtotal) + Number(tax)));
   // Start a Supabase transaction
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -123,8 +125,8 @@ export async function createOrder(
       merchant_id: merchantId,
       subtotal_cents: subtotal,
       tax_cents: tax,
-      total_cents: total,
-      status: 'confirmed_demo',
+      total_cents: preDiscountTotal,
+      status: 'paid',
       // New discount fields (requires DB migration)
       discount_cents: typeof discountCents === 'number' ? discountCents : 0,
       discount_label: discountLabel ?? null
