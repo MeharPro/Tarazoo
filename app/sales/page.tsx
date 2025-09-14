@@ -238,7 +238,7 @@ export default function SalesPage() {
                   <ul className="mt-2 space-y-1">
                     {selectedTransaction.items.map((item) => (
                       <li key={item.id} className="text-sm text-gray-700">
-                        {item.product_title} — {item.qty} × {formatPrice(item.price_cents / 100)}
+                        {item.sku} — {item.qty} × {formatPrice(item.price_cents / 100)}
                       </li>
                     ))}
                   </ul>
@@ -256,4 +256,3 @@ export default function SalesPage() {
     </div>
   );
 }
-
