@@ -1,8 +1,8 @@
 'use client';
 
+import { getProductByName } from 'lib/supabase';
 import { useEffect, useRef, useState } from 'react';
 import type { Product } from '../packages/shared/types';
-import { getProductByName } from 'lib/supabase';
 
 interface CameraScannerProps {
   onDetected: (product: Product) => void;
@@ -18,7 +18,7 @@ export default function CameraScanner({ onDetected, onClose, autoCloseOnScan = t
   const [torchEnabled, setTorchEnabled] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const [autoMode, setAutoMode] = useState(false);
+  const scannedRef = useRef(false);
 
   useEffect(() => {
     startScanning();
@@ -59,8 +59,8 @@ export default function CameraScanner({ onDetected, onClose, autoCloseOnScan = t
           }
         }
 
-        // Start periodic vision detection only if auto mode is enabled
-        if (autoMode) startPeriodicDetection();
+        // Start periodic vision detection
+        startPeriodicDetection();
       }
     } catch (err) {
       console.error('Camera error:', err);
@@ -76,6 +76,7 @@ export default function CameraScanner({ onDetected, onClose, autoCloseOnScan = t
 
   const stopScanning = () => {
     if (timerRef.current) {
+      // Works for both setInterval and setTimeout
       clearInterval(timerRef.current as any);
       timerRef.current = null;
     }
@@ -102,52 +103,37 @@ export default function CameraScanner({ onDetected, onClose, autoCloseOnScan = t
     }
   };
 
-  const startPeriodicDetection = () => {
+        const startPeriodicDetection = () => {
     if (timerRef.current) return;
+    scannedRef.current = false;
+
     timerRef.current = setInterval(async () => {
+      // If a scan has already succeeded, do nothing further.
+      if (scannedRef.current) return;
+
       try {
         const label = await detectCurrentFrame();
-        if (!label) return;
+        if (!label) return; // Nothing detected, continue scanning.
+
+        // A label was found, so we try to find the product.
         const product = await getProductByName(label);
         if (product) {
-          if ('vibrate' in navigator) {
-            navigator.vibrate(200);
-          }
+          // Check the flag again to handle race conditions.
+          if (scannedRef.current) return;
+          scannedRef.current = true; // Set flag to true
+
+          // Stop all scanning activity.
           stopScanning();
+
+          // Vibrate and call the callback.
+          if ('vibrate' in navigator) navigator.vibrate(200);
           onDetected(product);
           if (autoCloseOnScan) onClose();
-        } else {
-          setError(`Detected "${label}" but could not find a matching product.`);
-          setTimeout(() => setError(null), 1500);
         }
       } catch (e) {
-        // Swallow intermittent errors from detection
+        // Ignore errors and allow the loop to continue.
       }
     }, 1500);
-  };
-
-  const captureAndDetect = async () => {
-    try {
-      const label = await detectCurrentFrame();
-      if (!label) {
-        setError('Could not identify item. Try again.');
-        setTimeout(() => setError(null), 1500);
-        return;
-      }
-      const product = await getProductByName(label);
-      if (product) {
-        if ('vibrate' in navigator) navigator.vibrate(150);
-        stopScanning();
-        onDetected(product);
-        if (autoCloseOnScan) onClose();
-      } else {
-        setError(`Detected "${label}" but no matching product found.`);
-        setTimeout(() => setError(null), 1500);
-      }
-    } catch (e) {
-      setError('Capture failed. Please try again.');
-      setTimeout(() => setError(null), 1500);
-    }
   };
 
   const detectCurrentFrame = async (): Promise<string | null> => {
@@ -236,42 +222,13 @@ export default function CameraScanner({ onDetected, onClose, autoCloseOnScan = t
               <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-green-500 rounded-bl-lg"></div>
               <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-green-500 rounded-br-lg"></div>
             </div>
-            {isScanning && autoMode && (
+            {isScanning && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-full h-0.5 bg-green-500 animate-pulse"></div>
               </div>
             )}
           </div>
         </div>
-
-        {/* Controls: torch (left), auto toggle (next), shutter (bottom center in manual mode) */}
-        <button
-          onClick={() => {
-            const next = !autoMode;
-            setAutoMode(next);
-            if (next) {
-              startPeriodicDetection();
-              setIsScanning(true);
-            } else if (timerRef.current) {
-              clearInterval(timerRef.current as any);
-              timerRef.current = null;
-              setIsScanning(false);
-            }
-          }}
-          className="absolute top-4 left-20 z-10 bg-white/20 backdrop-blur rounded-full px-3 py-2 text-white text-sm"
-        >
-          {autoMode ? 'Auto: ON' : 'Auto: OFF'}
-        </button>
-
-        {!autoMode && (
-          <div className="absolute bottom-10 left-0 right-0 flex items-center justify-center pointer-events-none">
-            <button
-              onClick={captureAndDetect}
-              className="pointer-events-auto w-20 h-20 rounded-full border-4 border-white bg-white/70 active:bg-white/90 shadow-lg"
-              aria-label="Capture"
-            />
-          </div>
-        )}
 
         {error && (
           <div className="absolute bottom-20 left-4 right-4 bg-red-500/90 text-white p-3 rounded-lg">

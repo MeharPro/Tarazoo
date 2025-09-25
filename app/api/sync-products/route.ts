@@ -1,32 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { syncShopifyToSupabase } from 'lib/shopify-supabase-sync';
+'use server';
 
-export async function POST(request: NextRequest) {
+import { NextRequest, NextResponse } from 'next/server';
+import { syncShopifyToSupabase, syncShopifyProductByHandle } from 'lib/shopify-supabase-sync';
+
+export async function POST(req: NextRequest) {
   try {
-    const result = await syncShopifyToSupabase();
-    
-    if (result.success) {
-      return NextResponse.json({
-        success: true,
-        message: `Synced ${result.count} products from Shopify`,
-        products: result.products
-      });
-    } else {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 500 }
-      );
+    const { searchParams } = new URL(req.url);
+    const handle = searchParams.get('handle');
+    if (handle) {
+      const result = await syncShopifyProductByHandle(handle);
+      if (!result.success) {
+        return NextResponse.json({ error: 'Sync failed', details: result }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, count: result.count || 0 });
     }
-  } catch (error) {
-    console.error('Sync API error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Sync failed' },
-      { status: 500 }
-    );
+    const result = await syncShopifyToSupabase();
+    if (!result.success) {
+      return NextResponse.json({ error: 'Sync failed', details: result }, { status: 500 });
+    }
+    return NextResponse.json({ success: true, count: result.count || 0 });
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Unexpected error', details: e?.message || String(e) }, { status: 500 });
   }
 }
 
-export async function GET(request: NextRequest) {
-  // Trigger sync on GET for easy testing
-  return POST(request);
-}

@@ -62,18 +62,48 @@ export async function getAllProducts(): Promise<Product[]> {
 
 // Find a product by exact name (case-insensitive)
 export async function getProductByName(name: string): Promise<Product | null> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .ilike('name', name)
-    .maybeSingle();
+  const norm = name.trim().toLowerCase();
+  const variants = Array.from(new Set([
+    norm,
+    norm.replace(/\s+/g, ' '),
+    norm.replace(/redbull/g, 'red bull'),
+    norm.replace(/red bull/g, 'redbull'),
+    norm.replace(/water bottle/g, 'bottle'),
+  ]));
 
-  if (error) {
-    console.error('Error fetching product by name:', error);
-    return null;
+  // 1) Try exact (case-insensitive)
+  for (const v of variants) {
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .ilike('name', v)
+      .maybeSingle();
+    if (data) return data;
   }
 
-  return data ?? null;
+  // 2) Try substring match
+  for (const v of variants) {
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .ilike('name', `%${v}%`)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // 3) Try word-wise contains order
+  const words = norm.split(/\s+/).filter(Boolean);
+  if (words.length > 1) {
+    const pattern = `%${words.join('%')}%`;
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .ilike('name', pattern)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  return null;
 }
 
 // Order operations

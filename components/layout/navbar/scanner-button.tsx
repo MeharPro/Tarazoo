@@ -15,7 +15,7 @@ export default function ScannerButton() {
       <button
         onClick={() => setIsScanning(true)}
         className="relative flex h-11 w-11 items-center justify-center rounded-md border border-neutral-200 text-black transition-colors hover:border-neutral-300 dark:border-neutral-700 dark:text-white dark:hover:border-neutral-600 md:h-12 md:w-12"
-        aria-label="Scan barcode"
+        aria-label="Open camera scanner"
       >
         <svg
           className="h-6 w-6"
